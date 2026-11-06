@@ -11,8 +11,8 @@ SPlayer-Next — desktop music player on **Electron + Vue 3 + TypeScript**, with
 ```bash
 pnpm install              # Install deps
 pnpm dev                  # Build native (debug) + start Electron dev
-pnpm build                # Full build (rimraf → native → typecheck → electron-vite)
-pnpm build:{win,mac,linux}# Platform packages
+pnpm build                # Full build (rimraf → native → typecheck → electron-forge package)
+pnpm build:{win,mac,linux}# Platform packages (electron-forge make → electron-builder)
 pnpm typecheck            # tsc + vue-tsc (node + web targets)
 pnpm lint / format        # ESLint / Prettier
 pnpm build:native         # Rust only; add `--dev` for debug
@@ -76,7 +76,7 @@ Server protocol clients live in the main process (`electron/main/services/stream
 
 - `useNowPlayingSync` — playback sync, lyric index, anchor interpolation
 - `getNowPlayingCurrentMs()` — non-reactive current time for RAF char highlight
-- Line selection: `pickPrimaryIndex` (desktop, considers overlap) vs. `pickLatestStartedIndex` (dynamic island, immediate switch)
+- Line selection: `pickPrimaryIndex` (desktop/taskbar, considers overlap) vs. `pickLatestStartedIndex` (dynamic island, immediate switch)
 
 Don't reimplement these inside individual windows.
 

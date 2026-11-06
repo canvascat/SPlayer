@@ -1,12 +1,11 @@
 import { app, BrowserWindow, dialog, shell } from "electron";
-import { join } from "path";
-import { is } from "@electron-toolkit/utils";
 import { createWindow } from "./create";
+import { loadRendererPage } from "./renderer";
 import { initThumbar } from "@main/services/thumbar";
 import { enableTaskbarThumbnail } from "@main/services/thumbnail";
 import { initTray } from "@main/services/tray";
 import { store } from "@main/store";
-import { handleCacheProtocolOnPartition, MAIN_PARTITION } from "@main/utils/protocol";
+import { MAIN_PARTITION } from "@main/utils/protocol";
 import { isAppQuitting } from "@main/utils/lifecycle";
 import { broadcast } from "@main/utils/broadcast";
 import { CURRENT_AGREEMENT_VERSION } from "@shared/constants/agreement";
@@ -16,8 +15,7 @@ import { setMainWindowVisible, setPlayerExpanded } from "@main/utils/powerBlocke
 /** 判断是否应用内部导航 */
 const isInternalNavigation = (url: string): boolean => {
   if (url.startsWith("file://")) return true;
-  const devBase = process.env["ELECTRON_RENDERER_URL"];
-  return !!devBase && url.startsWith(devBase);
+  return !!MAIN_WINDOW_VITE_DEV_SERVER_URL && url.startsWith(MAIN_WINDOW_VITE_DEV_SERVER_URL);
 };
 
 let mainWindow: BrowserWindow | null = null;
@@ -32,8 +30,6 @@ export const createMainWindow = (): BrowserWindow => {
   /** 旧版窗口状态 */
   const legacyState = remember ? store.get("windowStates.main") : undefined;
 
-  // 注册 cache:// 协议
-  handleCacheProtocolOnPartition(MAIN_PARTITION);
   const borderlessWindow = store.get("system.borderlessWindow") ?? true;
 
   mainWindow = createWindow({
@@ -86,7 +82,7 @@ export const createMainWindow = (): BrowserWindow => {
   mainWindow.on("close", (event) => {
     if (isAppQuitting()) return;
     event.preventDefault();
-    mainWindow?.hide();
+    hideMainWindow();
   });
   // 最大化
   mainWindow.on("maximize", () => {
@@ -130,14 +126,7 @@ export const createMainWindow = (): BrowserWindow => {
     initialHash = "/agreement-update";
   }
 
-  // 基于 electron-vite cli 的 HMR
-  let loading: Promise<void>;
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    const base = process.env["ELECTRON_RENDERER_URL"];
-    loading = mainWindow.loadURL(`${base}#${initialHash}`);
-  } else {
-    loading = mainWindow.loadFile(join(__dirname, "../renderer/index.html"), { hash: initialHash });
-  }
+  const loading = loadRendererPage(mainWindow, "index.html", initialHash);
   void loading.catch((error) => {
     if (isAppQuitting()) return;
     coreLog.error("主窗口加载失败", error);
@@ -217,9 +206,16 @@ export const toggleFullscreenMainWindow = (): void => {
 /** 查询是否全屏 */
 export const isMainWindowFullscreen = (): boolean => !!getMainWindow()?.isFullScreen();
 
-/** 隐藏主窗口 */
+/** 隐藏主窗口，macOS 全屏空间退出后再隐藏以避免残留黑屏 */
 export const hideMainWindow = (): void => {
-  getMainWindow()?.hide();
+  const win = getMainWindow();
+  if (!win) return;
+  if (process.platform === "darwin" && win.isFullScreen()) {
+    win.once("leave-full-screen", () => win.hide());
+    win.setFullScreen(false);
+    return;
+  }
+  win.hide();
 };
 
 /** 应用界面缩放：百分比 → setZoomFactor（clamp 0.5~2.0） */

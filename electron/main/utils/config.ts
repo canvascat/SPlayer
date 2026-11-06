@@ -1,4 +1,3 @@
-import { is } from "@electron-toolkit/utils";
 import { app } from "electron";
 import path from "node:path";
 import { store } from "@main/store";
@@ -8,7 +7,7 @@ import { defaultCacheDir } from "./paths";
  * 是否为开发环境
  * @returns boolean
  */
-export const isDev = is.dev;
+export const isDev = !app.isPackaged;
 
 /** 是否为 Windows 系统 */
 export const isWin = process.platform === "win32";
@@ -49,6 +48,9 @@ export const getBackgroundsDir = (): string => path.join(getAppCacheDir(), "back
 
 /** 当前生效的歌曲缓存目录 */
 export const getSongCacheDir = (): string => path.join(getAppCacheDir(), "songs");
+
+/** 当前生效的动态封面目录 */
+export const getMotionCoverCacheDir = (): string => path.join(getAppCacheDir(), "motion-covers");
 
 /** 当前生效的下载目录（默认：系统音乐目录下的软件名子目录） */
 export const getDownloadDir = (): string =>

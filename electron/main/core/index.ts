@@ -1,5 +1,4 @@
 import { app, BrowserWindow } from "electron";
-import { electronApp, optimizer } from "@electron-toolkit/utils";
 import {
   createMainWindow,
   restoreLyricWindows,
@@ -9,7 +8,8 @@ import {
   getDynamicIslandWindow,
   getTaskbarLyricWindow,
 } from "@main/window";
-import { isMac } from "@main/utils/config";
+import { watchWindowShortcuts } from "@main/window/shortcuts";
+import { isDev, isMac, isWin } from "@main/utils/config";
 import { registerIpcHandlers } from "@main/ipc";
 import { init as initMedia } from "@main/services/media";
 import { init as initLastfm } from "@main/services/lastfm";
@@ -19,7 +19,12 @@ import { init as initSongCache } from "@main/services/songCache";
 import { init as initDownload } from "@main/services/downloadManager";
 import { pluginRegistry } from "@main/plugins/registry";
 import { init as initPlaybackBridge } from "@main/plugins/playbackBridge";
-import { registerCacheScheme, handleCacheProtocol } from "@main/utils/protocol";
+import {
+  registerCacheScheme,
+  handleCacheProtocol,
+  handleCacheProtocolOnPartition,
+  MAIN_PARTITION,
+} from "@main/utils/protocol";
 import { startServer } from "@main/server";
 import { startMcpServer } from "@main/services/mcp/http";
 import { initUpdater } from "@main/services/updater";
@@ -105,11 +110,12 @@ export const initApp = (): void => {
   registerCacheScheme();
   // 其他初始化
   app.whenReady().then(() => {
-    electronApp.setAppUserModelId("top.imsyy.splayer-next");
+    if (isWin) app.setAppUserModelId(isDev ? process.execPath : "top.imsyy.splayer-next");
     // 注册 cache:// 协议处理
     handleCacheProtocol();
+    handleCacheProtocolOnPartition(MAIN_PARTITION);
     app.on("browser-window-created", (_, window) => {
-      optimizer.watchWindowShortcuts(window);
+      watchWindowShortcuts(window);
     });
     // 注册 IPC
     let startupComplete = false;
@@ -156,6 +162,7 @@ export const initApp = (): void => {
     setTimeout(logProcessMemory, MEMORY_LOG_FIRST_DELAY_MS);
     setInterval(logProcessMemory, MEMORY_LOG_INTERVAL_MS);
     app.on("activate", () => {
+      if (isAppQuitting()) return;
       if (isMac) {
         if (getMainWindow()) focusMainWindow();
         else createMainWindow();
